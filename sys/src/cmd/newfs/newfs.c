@@ -35,6 +35,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include <u.h>
+#include <libc.h>
 
 #include <sys/cdefs.h>
 
@@ -126,164 +128,162 @@ main(int argc, char *argv[])
 
 	part_name = 'c';
 	reserved = 0;
-	while ((ch = getopt(argc, argv,
-	    "EJL:NO:RS:T:UXa:b:c:d:e:f:g:h:i:jk:lm:no:p:r:s:t")) != -1)
-		switch (ch) {
-		case 'E':
-			Eflag = 1;
-			break;
-		case 'J':
-			Jflag = 1;
-			break;
-		case 'L':
-			volumelabel = optarg;
-			i = -1;
-			while (isalnum(volumelabel[++i]));
-			if (volumelabel[i] != '\0') {
-				errx(1, "bad volume label. Valid characters are alphanumerics.");
-			}
-			if (strlen(volumelabel) >= MAXVOLLEN) {
-				errx(1, "bad volume label. Length is longer than %d.",
-				    MAXVOLLEN);
-			}
-			Lflag = 1;
-			break;
-		case 'N':
-			Nflag = 1;
-			break;
-		case 'O':
-			if ((Oflag = atoi(optarg)) < 1 || Oflag > 2)
-				errx(1, "%s: bad file system format value",
-				    optarg);
-			break;
-		case 'R':
-			Rflag = 1;
-			break;
-		case 'S':
-			rval = expand_number_int(optarg, &sectorsize);
-			if (rval < 0 || sectorsize <= 0)
-				errx(1, "%s: bad sector size", optarg);
-			break;
-		case 'T':
-			disktype = optarg;
-			break;
-		case 'j':
-			jflag = 1;
-			/* fall through to enable soft updates */
-		case 'U':
-			Uflag = 1;
-			break;
-		case 'X':
-			Xflag++;
-			break;
-		case 'a':
-			rval = expand_number_int(optarg, &maxcontig);
-			if (rval < 0 || maxcontig <= 0)
-				errx(1, "%s: bad maximum contiguous blocks",
-				    optarg);
-			break;
-		case 'b':
-			rval = expand_number_int(optarg, &bsize);
-			if (rval < 0)
-				 errx(1, "%s: bad block size",
-                                    optarg);
-			if (bsize < MINBSIZE)
-				errx(1, "%s: block size too small, min is %d",
-				    optarg, MINBSIZE);
-			if (bsize > MAXBSIZE)
-				errx(1, "%s: block size too large, max is %d",
-				    optarg, MAXBSIZE);
-			break;
-		case 'c':
-			rval = expand_number_int(optarg, &maxblkspercg);
-			if (rval < 0 || maxblkspercg <= 0)
-				errx(1, "%s: bad blocks per cylinder group",
-				    optarg);
-			break;
-		case 'd':
-			rval = expand_number_int(optarg, &maxbsize);
-			if (rval < 0 || maxbsize < MINBSIZE)
-				errx(1, "%s: bad extent block size", optarg);
-			break;
-		case 'e':
-			rval = expand_number_int(optarg, &maxbpg);
-			if (rval < 0 || maxbpg <= 0)
-			  errx(1, "%s: bad blocks per file in a cylinder group",
-				    optarg);
-			break;
-		case 'f':
-			rval = expand_number_int(optarg, &fsize);
-			if (rval < 0 || fsize <= 0)
-				errx(1, "%s: bad fragment size", optarg);
-			break;
-		case 'g':
-			rval = expand_number_int(optarg, &avgfilesize);
-			if (rval < 0 || avgfilesize <= 0)
-				errx(1, "%s: bad average file size", optarg);
-			break;
-		case 'h':
-			rval = expand_number_int(optarg, &avgfilesperdir);
-			if (rval < 0 || avgfilesperdir <= 0)
-			       errx(1, "%s: bad average files per dir", optarg);
-			break;
-		case 'i':
-			rval = expand_number_int(optarg, &density);
-			if (rval < 0 || density <= 0)
-				errx(1, "%s: bad bytes per inode", optarg);
-			break;
-		case 'l':
-			lflag = 1;
-			break;
-		case 'k':
-			if ((metaspace = atoi(optarg)) < 0)
-				errx(1, "%s: bad metadata space %%", optarg);
-			if (metaspace == 0)
-				/* force to stay zero in mkfs */
-				metaspace = -1;
-			break;
-		case 'm':
-			if ((minfree = atoi(optarg)) < 0 || minfree > 99)
-				errx(1, "%s: bad free space %%", optarg);
-			break;
-		case 'n':
-			nflag = 1;
-			break;
-		case 'o':
-			if (strcmp(optarg, "space") == 0)
-				opt = FS_OPTSPACE;
-			else if (strcmp(optarg, "time") == 0)
-				opt = FS_OPTTIME;
-			else
-				errx(1, 
-		"%s: unknown optimization preference: use `space' or `time'",
-				    optarg);
-			break;
-		case 'r':
-			errno = 0;
-			reserved = strtoimax(optarg, &cp, 0);
-			if (errno != 0 || cp == optarg ||
-			    *cp != '\0' || reserved < 0)
-				errx(1, "%s: bad reserved size", optarg);
-			break;
-		case 'p':
-			is_file = 1;
-			part_name = optarg[0];
-			break;
-
-		case 's':
-			errno = 0;
-			fssize = strtoimax(optarg, &cp, 0);
-			if (errno != 0 || cp == optarg ||
-			    *cp != '\0' || fssize < 0)
-				errx(1, "%s: bad file system size", optarg);
-			break;
-		case 't':
-			tflag = 1;
-			break;
-		case '?':
-		default:
-			usage();
+	ARGBEGIN{
+	case 'E':
+		Eflag = 1;
+		break;
+	case 'J':
+		Jflag = 1;
+		break;
+	case 'L':
+		volumelabel = optarg;
+		i = -1;
+		while (isalnum(volumelabel[++i]));
+		if (volumelabel[i] != '\0') {
+			errx(1, "bad volume label. Valid characters are alphanumerics.");
 		}
+		if (strlen(volumelabel) >= MAXVOLLEN) {
+			errx(1, "bad volume label. Length is longer than %d.",
+			    MAXVOLLEN);
+		}
+		Lflag = 1;
+		break;
+	case 'N':
+		Nflag = 1;
+		break;
+	case 'O':
+		if ((Oflag = atoi(optarg)) < 1 || Oflag > 2)
+			errx(1, "%s: bad file system format value",
+			    optarg);
+		break;
+	case 'R':
+		Rflag = 1;
+		break;
+	case 'S':
+		rval = expand_number_int(optarg, &sectorsize);
+		if (rval < 0 || sectorsize <= 0)
+			errx(1, "%s: bad sector size", optarg);
+		break;
+	case 'T':
+		disktype = optarg;
+		break;
+	case 'j':
+		jflag = 1;
+		/* fall through to enable soft updates */
+	case 'U':
+		Uflag = 1;
+		break;
+	case 'X':
+		Xflag++;
+		break;
+	case 'a':
+		rval = expand_number_int(optarg, &maxcontig);
+		if (rval < 0 || maxcontig <= 0)
+			errx(1, "%s: bad maximum contiguous blocks",
+			    optarg);
+		break;
+	case 'b':
+		rval = expand_number_int(optarg, &bsize);
+		if (rval < 0)
+			 errx(1, "%s: bad block size",
+			    optarg);
+		if (bsize < MINBSIZE)
+			errx(1, "%s: block size too small, min is %d",
+			    optarg, MINBSIZE);
+		if (bsize > MAXBSIZE)
+			errx(1, "%s: block size too large, max is %d",
+			    optarg, MAXBSIZE);
+		break;
+	case 'c':
+		rval = expand_number_int(optarg, &maxblkspercg);
+		if (rval < 0 || maxblkspercg <= 0)
+			errx(1, "%s: bad blocks per cylinder group",
+			    optarg);
+		break;
+	case 'd':
+		rval = expand_number_int(optarg, &maxbsize);
+		if (rval < 0 || maxbsize < MINBSIZE)
+			errx(1, "%s: bad extent block size", optarg);
+		break;
+	case 'e':
+		rval = expand_number_int(optarg, &maxbpg);
+		if (rval < 0 || maxbpg <= 0)
+		  errx(1, "%s: bad blocks per file in a cylinder group",
+			    optarg);
+		break;
+	case 'f':
+		rval = expand_number_int(optarg, &fsize);
+		if (rval < 0 || fsize <= 0)
+			errx(1, "%s: bad fragment size", optarg);
+		break;
+	case 'g':
+		rval = expand_number_int(optarg, &avgfilesize);
+		if (rval < 0 || avgfilesize <= 0)
+			errx(1, "%s: bad average file size", optarg);
+		break;
+	case 'h':
+		rval = expand_number_int(optarg, &avgfilesperdir);
+		if (rval < 0 || avgfilesperdir <= 0)
+		       errx(1, "%s: bad average files per dir", optarg);
+		break;
+	case 'i':
+		rval = expand_number_int(optarg, &density);
+		if (rval < 0 || density <= 0)
+			errx(1, "%s: bad bytes per inode", optarg);
+		break;
+	case 'l':
+		lflag = 1;
+		break;
+	case 'k':
+		if ((metaspace = atoi(optarg)) < 0)
+			errx(1, "%s: bad metadata space %%", optarg);
+		if (metaspace == 0)
+			/* force to stay zero in mkfs */
+			metaspace = -1;
+		break;
+	case 'm':
+		if ((minfree = atoi(optarg)) < 0 || minfree > 99)
+			errx(1, "%s: bad free space %%", optarg);
+		break;
+	case 'n':
+		nflag = 1;
+		break;
+	case 'o':
+		if (strcmp(optarg, "space") == 0)
+			opt = FS_OPTSPACE;
+		else if (strcmp(optarg, "time") == 0)
+			opt = FS_OPTTIME;
+		else
+			errx(1, 
+	"%s: unknown optimization preference: use `space' or `time'",
+			    optarg);
+		break;
+	case 'r':
+		errno = 0;
+		reserved = strtoimax(optarg, &cp, 0);
+		if (errno != 0 || cp == optarg ||
+		    *cp != '\0' || reserved < 0)
+			errx(1, "%s: bad reserved size", optarg);
+		break;
+	case 'p':
+		is_file = 1;
+		part_name = optarg[0];
+		break;
+
+	case 's':
+		errno = 0;
+		fssize = strtoimax(optarg, &cp, 0);
+		if (errno != 0 || cp == optarg ||
+		    *cp != '\0' || fssize < 0)
+			errx(1, "%s: bad file system size", optarg);
+		break;
+	case 't':
+		tflag = 1;
+		break;
+	case '?':
+	default:
+		usage();
+	}ARGEND
 	argc -= optind;
 	argv += optind;
 
