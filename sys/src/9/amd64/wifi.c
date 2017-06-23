@@ -11,16 +11,17 @@
 #include "etherif.h"
 #include "wifi.h"
 
+#include <mp.h>
 #include <libsec.h>
 
 typedef struct SNAP SNAP;
 struct SNAP
 {
-	uchar	dsap;
-	uchar	ssap;
-	uchar	control;
-	uchar	orgcode[3];
-	uchar	type[2];
+	uint8_t	dsap;
+	uint8_t	ssap;
+	uint8_t	control;
+	uint8_t	orgcode[3];
+	uint8_t	type[2];
 };
 
 enum {
@@ -37,7 +38,7 @@ static char Sassoc[] = "associated";
 static char Sunassoc[] = "unassociated";
 static char Sblocked[] = "blocked";	/* no keys negotiated. only pass EAPOL frames */
 
-static uchar basicrates[] = {
+static uint8_t basicrates[] = {
 	0x80 | 2,	/* 1.0	Mb/s */
 	0x80 | 4,	/* 2.0	Mb/s */
 	0x80 | 11,	/* 5.5	Mb/s */
@@ -50,7 +51,7 @@ static Block* wifidecrypt(Wifi *, Wnode *, Block *);
 static Block* wifiencrypt(Wifi *, Wnode *, Block *);
 static void freewifikeys(Wifi *, Wnode *);
 
-static uchar*
+static uint8_t*
 srcaddr(Wifipkt *w)
 {
 	if((w->fc[1] & 0x02) == 0)
@@ -59,7 +60,7 @@ srcaddr(Wifipkt *w)
 		return w->a3;
 	return w->a4;
 }
-static uchar*
+static uint8_t*
 dstaddr(Wifipkt *w)
 {
 	if((w->fc[1] & 0x01) != 0)
@@ -172,11 +173,11 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 }
 
 static Wnode*
-nodelookup(Wifi *wifi, uchar *bssid, int new)
+nodelookup(Wifi *wifi, uint8_t *bssid, int new)
 {
 	Wnode *wn, *nn;
 
-	if(memcmp(bssid, wifi->ether->bcast, Eaddrlen) == 0)
+	if(memcmp(bssid, wifi->ether->Netif.bcast, Eaddrlen) == 0)
 		return nil;
 	if((wn = wifi->bss) != nil){
 		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
@@ -222,8 +223,8 @@ wifitxfail(Wifi *wifi, Block *b)
 		wn->actrate--;
 }
 
-static uchar*
-putrates(uchar *p, uchar *rates)
+static uint8_t*
+putrates(uint8_t *p, uint8_t *rates)
 {
 	int n, m;
 
@@ -250,7 +251,7 @@ wifiprobe(Wifi *wifi, Wnode *wn)
 {
 	Wifipkt *w;
 	Block *b;
-	uchar *p;
+	uint8_t *p;
 	int n;
 
 	n = strlen(wifi->essid);
@@ -264,9 +265,9 @@ wifiprobe(Wifi *wifi, Wnode *wn)
 	w = (Wifipkt*)b->wp;
 	w->fc[0] = 0x40;	/* probe request */
 	w->fc[1] = 0x00;	/* STA->STA */
-	memmove(w->a1, wifi->ether->bcast, Eaddrlen);	/* ??? */
+	memmove(w->a1, wifi->ether->Netif.bcast, Eaddrlen);	/* ??? */
 	memmove(w->a2, wifi->ether->ea, Eaddrlen);
-	memmove(w->a3, wifi->ether->bcast, Eaddrlen);
+	memmove(w->a3, wifi->ether->Netif.bcast, Eaddrlen);
 	b->wp += WIFIHDRSIZE;
 	p = b->wp;
 
@@ -290,7 +291,7 @@ sendauth(Wifi *wifi, Wnode *bss)
 {
 	Wifipkt *w;
 	Block *b;
-	uchar *p;
+	uint8_t *p;
 
 	b = allocb(WIFIHDRSIZE + 3*2);
 	w = (Wifipkt*)b->wp;
@@ -319,7 +320,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 {
 	Wifipkt *w;
 	Block *b;
-	uchar *p;
+	uint8_t *p;
 	int cap, n;
 
 	b = allocb(WIFIHDRSIZE + 512);
@@ -374,11 +375,11 @@ setstatus(Wifi *wifi, Wnode *wn, char *new)
 			wn->bssid, 
 			TK2MS(MACHP(0)->ticks), TK2MS(MACHP(0)->ticks - wn->lastsend),
 			old, new,
-			getcallerpc(&wifi));
+			getcallerpc());
 }
 
 static void
-recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
+recvassoc(Wifi *wifi, Wnode *wn, uint8_t *d, int len)
 {
 	uint s;
 
@@ -403,10 +404,10 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 }
 
 static void
-recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
+recvbeacon(Wifi *wifi, Wnode *wn, uint8_t *d, int len)
 {
-	static uchar wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
-	uchar *e, *x, *p, t;
+	static uint8_t wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
+	uint8_t *e, *x, *p, t;
 	int rsnset;
 
 	len -= 8+2+2;
@@ -482,11 +483,11 @@ freewifikeys(Wifi *wifi, Wnode *wn)
 
 	wlock(&wifi->crypt);
 	for(i=0; i<nelem(wn->rxkey); i++){
-		secfree(wn->rxkey[i]);
+		free(wn->rxkey[i]);
 		wn->rxkey[i] = nil;
 	}
 	for(i=0; i<nelem(wn->txkey); i++){
-		secfree(wn->txkey[i]);
+		free(wn->txkey[i]);
 		wn->txkey[i] = nil;
 	}
 	wunlock(&wifi->crypt);
@@ -510,12 +511,12 @@ wifideauth(Wifi *wifi, Wnode *wn)
 
 		/* notify aux/wpa with a zero length packet that we got deassociated from the ap */
 		ether = wifi->ether;
-		for(i=0; i<ether->nfile; i++){
-			f = ether->f[i];
-			if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
+		for(i=0; i<ether->Netif.nfile; i++){
+			f = ether->Netif.f[i];
+			if(f == nil || f->iq == nil || f->inuse == 0 || f->type != 0x888e)
 				continue;
-			qflush(f->in);
-			qwrite(f->in, 0, 0);
+			qflush(f->iq);
+			qwrite(f->iq, 0, 0);
 		}
 		qflush(ether->oq);
 	}
@@ -525,7 +526,7 @@ wifideauth(Wifi *wifi, Wnode *wn)
 static int
 goodbss(Wifi *wifi, Wnode *wn)
 {
-	if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0){
+	if(memcmp(wifi->bssid, wifi->ether->Netif.bcast, Eaddrlen) != 0){
 		if(memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
 			return 0;	/* bssid doesnt match */
 	} else if(wifi->essid[0] == 0)
@@ -538,6 +539,8 @@ goodbss(Wifi *wifi, Wnode *wn)
 static void
 wifiproc(void *arg)
 {
+        Proc *up = externup();
+
 	Wifi *wifi;
 	Wifipkt *w;
 	Wnode *wn;
@@ -685,6 +688,8 @@ drop:
 static void
 wifoproc(void *arg)
 {
+        Proc *up = externup();
+
 	Ether *ether;
 	Wifi *wifi;
 	Block *b;
@@ -701,26 +706,28 @@ wifoproc(void *arg)
 static void
 wifsproc(void *arg)
 {
+        Proc *up = externup();
+
 	Ether *ether;
 	Wifi *wifi;
 	Wnode wnscan;
 	Wnode *wn;
-	ulong now, tmout;
-	uchar *rate;
+	uint32_t now, tmout;
+	uint8_t *rate;
 
 	wifi = arg;
 	ether = wifi->ether;
 
 	wn = &wnscan;
 	memset(wn, 0, sizeof(*wn));
-	memmove(wn->bssid, ether->bcast, Eaddrlen);
+	memmove(wn->bssid, ether->Netif.bcast, Eaddrlen);
 
 	while(waserror())
 		;
 Scan:
 	/* scan for access point */
 	while(wifi->bss == nil){
-		ether->link = 0;
+		ether->Netif.link = 0;
 		wnscan.channel = 1 + ((wnscan.channel+4) % 13);
 		wifiprobe(wifi, &wnscan);
 		do {
@@ -732,11 +739,11 @@ Scan:
 	/* maintain access point */
 	tmout = 0;
 	while((wn = wifi->bss) != nil){
-		ether->link = (wn->status == Sassoc) || (wn->status == Sblocked);
-		if(ether->link && (rate = wn->actrate) != nil)
-			ether->mbps = ((*rate & 0x7f)+1)/2;
+		ether->Netif.link = (wn->status == Sassoc) || (wn->status == Sblocked);
+		if(ether->Netif.link && (rate = wn->actrate) != nil)
+			ether->Netif.mbps = ((*rate & 0x7f)+1)/2;
 		now = MACHP(0)->ticks;
-		if(wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 20 || goodbss(wifi, wn) == 0){
+		if((wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 20) || goodbss(wifi, wn) == 0){
 			wifideauth(wifi, wn);
 			wifi->bss = nil;
 			break;
@@ -763,7 +770,7 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	wifi = malloc(sizeof(Wifi));
 	if(wifi == nil)
 		error(Enomem);
-	wifi->iq = qopen(ether->limit, 0, 0, 0);
+	wifi->iq = qopen(ether->Netif.limit, 0, 0, 0);
 	if(wifi->iq == nil){
 		free(wifi);
 		error(Enomem);
@@ -774,7 +781,7 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	wifi->rates = basicrates;
 
 	wifi->essid[0] = 0;
-	memmove(wifi->bssid, ether->bcast, Eaddrlen);
+	memmove(wifi->bssid, ether->Netif.bcast, Eaddrlen);
 
 	wifi->lastauth = MACHP(0)->ticks;
 
@@ -789,7 +796,7 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 }
 
 static int
-hextob(char *s, char **sp, uchar *b, int n)
+hextob(char *s, char **sp, uint8_t *b, int n)
 {
 	int r;
 
@@ -821,7 +828,7 @@ static Wkey*
 parsekey(char *s)
 {
 	char buf[256], *p;
-	uchar key[32];
+	uint8_t key[32];
 	int i, n;
 	Wkey *k;
 
@@ -837,18 +844,18 @@ parsekey(char *s)
 			break;
 	switch(i){
 	case 0:
-		k = secalloc(sizeof(Wkey));
+		k = malloc(sizeof(Wkey));
 		break;
 	case TKIP:
 		if(n != 32)
 			return nil;	
-		k = secalloc(sizeof(Wkey) + n);
+		k = malloc(sizeof(Wkey) + n);
 		memmove(k->key, key, n);
 		break;
 	case CCMP:
 		if(n != 16)
 			return nil;
-		k = secalloc(sizeof(Wkey) + sizeof(AESstate));
+		k = malloc(sizeof(Wkey) + sizeof(AESstate));
 		setupAESstate((AESstate*)k->key, key, n, nil);
 		break;
 	default:
@@ -865,6 +872,8 @@ parsekey(char *s)
 void
 wificfg(Wifi *wifi, char *opt)
 {
+        Proc *up = externup();
+
 	char *p, buf[64];
 	int n;
 
@@ -896,26 +905,28 @@ enum {
 
 static Cmdtab wifictlmsg[] =
 {
-	CMdebug,	"debug",	0,
-	CMessid,	"essid",	0,
-	CMauth,		"auth",		0,
-	CMbssid,	"bssid",	0,
+	{	CMdebug,	"debug",	0 },
+	{	CMessid,	"essid",	0 },
+	{	CMauth,		"auth",		0 },
+	{	CMbssid,	"bssid",	0 },
 
-	CMrxkey0,	"rxkey0",	0,	/* group keys */
-	CMrxkey1,	"rxkey1",	0,
-	CMrxkey2,	"rxkey2",	0,
-	CMrxkey3,	"rxkey3",	0,
+	{	CMrxkey0,	"rxkey0",	0 },	/* group keys */
+	{	CMrxkey1,	"rxkey1",	0 },
+	{	CMrxkey2,	"rxkey2",	0 },
+	{	CMrxkey3,	"rxkey3",	0} ,
 
-	CMrxkey4,	"rxkey",	0,	/* peerwise keys */
-	CMtxkey0,	"txkey",	0,
+	{	CMrxkey4,	"rxkey",	0 },	/* peerwise keys */
+	{	CMtxkey0,	"txkey",	0 },
 
-	CMtxkey0,	"txkey0",	0,
+	{	CMtxkey0,	"txkey0",	0 },
 };
 
 long
 wifictl(Wifi *wifi, void *buf, long n)
 {
-	uchar addr[Eaddrlen];
+        Proc *up = externup();
+
+	uint8_t addr[Eaddrlen];
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	Wnode *wn;
@@ -928,7 +939,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 	}
 	if(wifi->debug)
 		print("#l%d: wifictl: %.*s\n", wifi->ether->ctlrno, (int)n, buf);
-	memmove(addr, wifi->ether->bcast, Eaddrlen);
+	memmove(addr, wifi->ether->Netif.bcast, Eaddrlen);
 	wn = wifi->bss;
 	cb = parsecmd(buf, n);
 	ct = lookupcmd(cb, wifictlmsg, nelem(wifictlmsg));
@@ -964,7 +975,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			wifideauth(wifi, wn);
 		}
 		wifi->bss = nil;
-		if(wifi->essid[0] == 0 && memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) == 0)
+		if(wifi->essid[0] == 0 && memcmp(wifi->bssid, wifi->ether->Netif.bcast, Eaddrlen) == 0)
 			break;
 		for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 			if(goodbss(wifi, wn)){
@@ -998,7 +1009,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			error("bad key");
 		memset(cb->f[1], 0, strlen(cb->f[1]));
 		if(k->cipher == 0){
-			secfree(k);
+			free(k);
 			k = nil;
 		}
 		if(ct->index < CMtxkey0)
@@ -1006,7 +1017,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		else
 			kk = &wn->txkey[ct->index - CMtxkey0];
 		wlock(&wifi->crypt);
-		secfree(*kk);
+		free(*kk);
 		*kk = k;
 		wunlock(&wifi->crypt);
 		if(ct->index >= CMtxkey0 && wn->status == Sblocked)
@@ -1019,9 +1030,9 @@ wifictl(Wifi *wifi, void *buf, long n)
 }
 
 long
-wifistat(Wifi *wifi, void *buf, long n, ulong off)
+wifistat(Wifi *wifi, void *buf, long n, uint32_t off)
 {
-	static uchar zeros[Eaddrlen];
+	// static uint8_t zeros[Eaddrlen];
 	char essid[Essidlen+1];
 	char *s, *p, *e;
 	Wnode *wn;
@@ -1080,15 +1091,15 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	return n;
 }
 
-static void tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
-static int tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
-static void ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
-static int ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
+static void tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc);
+static int tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc);
+static void ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc);
+static int ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc);
 
 static Block*
 wifiencrypt(Wifi *wifi, Wnode *wn, Block *b)
 {
-	uvlong tsc;
+	uint64_t tsc;
 	int n, kid;
 	Wifipkt *w;
 	Wkey *k;
@@ -1141,7 +1152,7 @@ wifiencrypt(Wifi *wifi, Wnode *wn, Block *b)
 	}
 	runlock(&wifi->crypt);
 
-	b->rp = (uchar*)w;
+	b->rp = (uint8_t*)w;
 	w->fc[1] |= 0x40;
 	return b;
 }
@@ -1149,7 +1160,7 @@ wifiencrypt(Wifi *wifi, Wnode *wn, Block *b)
 static Block*
 wifidecrypt(Wifi *wifi, Wnode *wn, Block *b)
 {
-	uvlong tsc;
+	uint64_t tsc;
 	int n, kid;
 	Wifipkt *w;
 	Wkey *k;
@@ -1173,12 +1184,12 @@ wifidecrypt(Wifi *wifi, Wnode *wn, Block *b)
 		goto drop;
 	switch(k->cipher){
 	case TKIP:
-		tsc =	(uvlong)b->rp[7]<<40 |
-			(uvlong)b->rp[6]<<32 |
-			(uvlong)b->rp[5]<<24 |
-			(uvlong)b->rp[4]<<16 |
-			(uvlong)b->rp[0]<<8 |
-			(uvlong)b->rp[2];
+		tsc =	(uint64_t)b->rp[7]<<40 |
+			(uint64_t)b->rp[6]<<32 |
+			(uint64_t)b->rp[5]<<24 |
+			(uint64_t)b->rp[4]<<16 |
+			(uint64_t)b->rp[0]<<8 |
+			(uint64_t)b->rp[2];
 		b->rp += 8;
 		if(tsc <= k->tsc)
 			goto drop;
@@ -1186,12 +1197,12 @@ wifidecrypt(Wifi *wifi, Wnode *wn, Block *b)
 			goto drop;
 		break;
 	case CCMP:
-		tsc =	(uvlong)b->rp[7]<<40 |
-			(uvlong)b->rp[6]<<32 |
-			(uvlong)b->rp[5]<<24 |
-			(uvlong)b->rp[4]<<16 |
-			(uvlong)b->rp[1]<<8 |
-			(uvlong)b->rp[0];
+		tsc =	(uint64_t)b->rp[7]<<40 |
+			(uint64_t)b->rp[6]<<32 |
+			(uint64_t)b->rp[5]<<24 |
+			(uint64_t)b->rp[4]<<16 |
+			(uint64_t)b->rp[1]<<8 |
+			(uint64_t)b->rp[0];
 		b->rp += 8;
 		if(tsc <= k->tsc)
 			goto drop;
@@ -1214,7 +1225,7 @@ wifidecrypt(Wifi *wifi, Wnode *wn, Block *b)
 	return b;
 }
 
-static u16int Sbox[256] = {
+static uint16_t Sbox[256] = {
 	0xC6A5, 0xF884, 0xEE99, 0xF68D, 0xFF0D, 0xD6BD, 0xDEB1, 0x9154,
 	0x6050, 0x0203, 0xCEA9, 0x567D, 0xE719, 0xB562, 0x4DE6, 0xEC9A,
 	0x8F45, 0x1F9D, 0x8940, 0xFA87, 0xEF15, 0xB2EB, 0x8EC9, 0xFB0B,
@@ -1250,28 +1261,28 @@ static u16int Sbox[256] = {
 };
 
 static void
-tkipk2tk(uchar key[16], u16int tk[8])
+tkipk2tk(uint8_t key[16], uint16_t tk[8])
 {
-	tk[0] = (u16int)key[1]<<8 | key[0];
-	tk[1] = (u16int)key[3]<<8 | key[2];
-	tk[2] = (u16int)key[5]<<8 | key[4];
-	tk[3] = (u16int)key[7]<<8 | key[6];
-	tk[4] = (u16int)key[9]<<8 | key[8];
-	tk[5] = (u16int)key[11]<<8 | key[10];
-	tk[6] = (u16int)key[13]<<8 | key[12];
-	tk[7] = (u16int)key[15]<<8 | key[14];
+	tk[0] = (uint16_t)key[1]<<8 | key[0];
+	tk[1] = (uint16_t)key[3]<<8 | key[2];
+	tk[2] = (uint16_t)key[5]<<8 | key[4];
+	tk[3] = (uint16_t)key[7]<<8 | key[6];
+	tk[4] = (uint16_t)key[9]<<8 | key[8];
+	tk[5] = (uint16_t)key[11]<<8 | key[10];
+	tk[6] = (uint16_t)key[13]<<8 | key[12];
+	tk[7] = (uint16_t)key[15]<<8 | key[14];
 }
 
 static void
-tkipphase1(u32int tscu, uchar ta[Eaddrlen], u16int tk[8], u16int p1k[5])
+tkipphase1(uint32_t tscu, uint8_t ta[Eaddrlen], uint16_t tk[8], uint16_t p1k[5])
 {
-	u16int *k, i, x0, x1, x2;
+	uint16_t *k, i, x0, x1, x2;
 
 	p1k[0] = tscu;
 	p1k[1] = tscu>>16;
-	p1k[2] = (u16int)ta[1]<<8 | ta[0];
-	p1k[3] = (u16int)ta[3]<<8 | ta[2];
-	p1k[4] = (u16int)ta[5]<<8 | ta[4];
+	p1k[2] = (uint16_t)ta[1]<<8 | ta[0];
+	p1k[3] = (uint16_t)ta[3]<<8 | ta[2];
+	p1k[4] = (uint16_t)ta[5]<<8 | ta[4];
 
 	for(i=0; i<8; i++){
 		k = &tk[i & 1];
@@ -1302,9 +1313,9 @@ tkipphase1(u32int tscu, uchar ta[Eaddrlen], u16int tk[8], u16int p1k[5])
 }
 
 static void
-tkipphase2(u16int tscl, u16int p1k[5], u16int tk[8], uchar rc4key[16])
+tkipphase2(uint16_t tscl, uint16_t p1k[5], uint16_t tk[8], uint8_t rc4key[16])
 {
-	u16int ppk[6], x0, x1, x2;
+	uint16_t ppk[6], x0, x1, x2;
 
 	ppk[0] = p1k[0];
 	ppk[1] = p1k[1];
@@ -1373,31 +1384,31 @@ tkipphase2(u16int tscl, u16int p1k[5], u16int tk[8], uchar rc4key[16])
 typedef struct MICstate MICstate;
 struct MICstate
 {
-	u32int	l;
-	u32int	r;
-	u32int	m;
-	u32int	n;
+	uint32_t	l;
+	uint32_t	r;
+	uint32_t	m;
+	uint32_t	n;
 };
 
 static void
-micsetup(MICstate *s, uchar key[8])
+micsetup(MICstate *s, uint8_t key[8])
 {
-	s->l =	(u32int)key[0] |
-		(u32int)key[1]<<8 |
-		(u32int)key[2]<<16 |
-		(u32int)key[3]<<24;
-	s->r =	(u32int)key[4] |
-		(u32int)key[5]<<8 |
-		(u32int)key[6]<<16 |
-		(u32int)key[7]<<24;
+	s->l =	(uint32_t)key[0] |
+		(uint32_t)key[1]<<8 |
+		(uint32_t)key[2]<<16 |
+		(uint32_t)key[3]<<24;
+	s->r =	(uint32_t)key[4] |
+		(uint32_t)key[5]<<8 |
+		(uint32_t)key[6]<<16 |
+		(uint32_t)key[7]<<24;
 	s->m = 0;
 	s->n = 0;
 }
 
 static void
-micupdate(MICstate *s, uchar *data, ulong len)
+micupdate(MICstate *s, uint8_t *data, uint32_t len)
 {
-	u32int l, r, m, n, e;
+	uint32_t l, r, m, n, e;
 
 	l = s->l;
 	r = s->r;
@@ -1406,7 +1417,7 @@ micupdate(MICstate *s, uchar *data, ulong len)
 	e = n + len;
 	while(n != e){
 		m >>= 8;
-		m |= (u32int)*data++ << 24;
+		m |= (uint32_t)*data++ << 24;
 		if(++n & 3)
 			continue;
 		l ^= m;
@@ -1426,9 +1437,9 @@ micupdate(MICstate *s, uchar *data, ulong len)
 }
 
 static void
-micfinish(MICstate *s, uchar mic[8])
+micfinish(MICstate *s, uint8_t mic[8])
 {
-	static uchar pad[8] = { 0x5a, 0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, };
+	static uint8_t pad[8] = { 0x5a, 0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, };
 
 	micupdate(s, pad, sizeof(pad));
 
@@ -1442,16 +1453,16 @@ micfinish(MICstate *s, uchar mic[8])
 	mic[7] = s->r>>24;
 }
 
-static uchar pad4[4] = { 0x00, 0x00, 0x00, 0x00, };
+static uint8_t pad4[4] = { 0x00, 0x00, 0x00, 0x00, };
 
 static void
-tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc)
 {
-	u16int tk[8], p1k[5];
-	uchar seed[16];
+	uint16_t tk[8], p1k[5];
+	uint8_t seed[16];
 	RC4state rs;
 	MICstate ms;
-	ulong crc;
+	uint32_t crc;
 
 	micsetup(&ms, k->key+24);
 	micupdate(&ms, dstaddr(w), Eaddrlen);
@@ -1477,13 +1488,13 @@ tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 }
 
 static int
-tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc)
 {
-	uchar seed[16], mic[8];
-	u16int tk[8], p1k[5];
+	uint8_t seed[16], mic[8];
+	uint16_t tk[8], p1k[5];
 	RC4state rs;
 	MICstate ms;
-	ulong crc;
+	uint32_t crc;
 
 	if(BLEN(b) < 8+4)
 		return -1;
@@ -1495,10 +1506,10 @@ tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 	rc4(&rs, b->rp, BLEN(b));
 
 	b->wp -= 4;
-	crc =	(ulong)b->wp[0] |
-		(ulong)b->wp[1]<<8 |
-		(ulong)b->wp[2]<<16 |
-		(ulong)b->wp[3]<<24;
+	crc =	(uint32_t)b->wp[0] |
+		(uint32_t)b->wp[1]<<8 |
+		(uint32_t)b->wp[2]<<16 |
+		(uint32_t)b->wp[3]<<24;
 	crc = ~crc;
 	crc ^= ethercrc(b->rp, BLEN(b));
 
@@ -1513,8 +1524,8 @@ tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 	return tsmemcmp(b->wp, mic, 8) | crc;
 }
 
-static uchar*
-putbe(uchar *p, int L, uint v)
+static uint8_t*
+putbe(uint8_t *p, int L, uint v)
 {
 	while(--L >= 0)
 		*p++ = (v >> L*8) & 0xFF;
@@ -1522,9 +1533,9 @@ putbe(uchar *p, int L, uint v)
 }
 
 static void
-xblock(int L, int M, uchar *N, uchar *a, int la, int lm, uchar t[16], AESstate *s)
+xblock(int L, int M, uint8_t *N, uint8_t *a, int la, int lm, uint8_t t[16], AESstate *s)
 {
-	uchar l[8], *p, *x, *e;
+	uint8_t l[8], *p, *x, *e;
 
 	assert(M >= 4 && M <= 16);
 	assert(L >= 2 && L <= 4);
@@ -1546,8 +1557,8 @@ xblock(int L, int M, uchar *N, uchar *a, int la, int lm, uchar t[16], AESstate *
 	}
 }
 
-static uchar*
-sblock(int L, uchar *N, uint i, uchar b[16], AESstate *s)
+static uint8_t*
+sblock(int L, uint8_t *N, uint i, uint8_t b[16], AESstate *s)
 {
 	b[0] = L-1;	/* flags */
 	memmove(&b[1], N, 15-L);
@@ -1557,12 +1568,12 @@ sblock(int L, uchar *N, uint i, uchar b[16], AESstate *s)
 };
 
 static void
-aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
-	uchar *a /* a[la] */, int la,
-	uchar *m /* m[lm+M] */, int lm,
+aesCCMencrypt(int L, int M, uint8_t *N /* N[15-L] */,
+	uint8_t *a /* a[la] */, int la,
+	uint8_t *m /* m[lm+M] */, int lm,
 	AESstate *s)
 {
-	uchar t[16], b[16], *p, *x;
+	uint8_t t[16], b[16], *p, *x;
 	uint i;
 
 	xblock(L, M, N, a, la, lm, t, s);
@@ -1570,14 +1581,14 @@ aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
 	for(i = 1; lm >= 16; i++, m += 16, lm -= 16){
 		sblock(L, N, i, b, s);
 
-		*((u32int*)&t[0]) ^= *((u32int*)&m[0]);
-		*((u32int*)&m[0]) ^= *((u32int*)&b[0]);
-		*((u32int*)&t[4]) ^= *((u32int*)&m[4]);
-		*((u32int*)&m[4]) ^= *((u32int*)&b[4]);
-		*((u32int*)&t[8]) ^= *((u32int*)&m[8]);
-		*((u32int*)&m[8]) ^= *((u32int*)&b[8]);
-		*((u32int*)&t[12]) ^= *((u32int*)&m[12]);
-		*((u32int*)&m[12]) ^= *((u32int*)&b[12]);
+		*((uint32_t*)&t[0]) ^= *((uint32_t*)&m[0]);
+		*((uint32_t*)&m[0]) ^= *((uint32_t*)&b[0]);
+		*((uint32_t*)&t[4]) ^= *((uint32_t*)&m[4]);
+		*((uint32_t*)&m[4]) ^= *((uint32_t*)&b[4]);
+		*((uint32_t*)&t[8]) ^= *((uint32_t*)&m[8]);
+		*((uint32_t*)&m[8]) ^= *((uint32_t*)&b[8]);
+		*((uint32_t*)&t[12]) ^= *((uint32_t*)&m[12]);
+		*((uint32_t*)&m[12]) ^= *((uint32_t*)&b[12]);
 
 		aes_encrypt(s->ekey, s->rounds, t, t);
 	}
@@ -1596,12 +1607,12 @@ aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
 }
 
 static int
-aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
-	uchar *a /* a[la] */, int la,
-	uchar *m /* m[lm+M] */, int lm,
+aesCCMdecrypt(int L, int M, uint8_t *N /* N[15-L] */,
+	uint8_t *a /* a[la] */, int la,
+	uint8_t *m /* m[lm+M] */, int lm,
 	AESstate *s)
 {
-	uchar t[16], b[16], *p, *x;
+	uint8_t t[16], b[16], *p, *x;
 	uint i;
 
 	xblock(L, M, N, a, la, lm, t, s);
@@ -1609,14 +1620,14 @@ aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 	for(i = 1; lm >= 16; i++, m += 16, lm -= 16){
 		sblock(L, N, i, b, s);
 
-		*((u32int*)&m[0]) ^= *((u32int*)&b[0]);
-		*((u32int*)&t[0]) ^= *((u32int*)&m[0]);
-		*((u32int*)&m[4]) ^= *((u32int*)&b[4]);
-		*((u32int*)&t[4]) ^= *((u32int*)&m[4]);
-		*((u32int*)&m[8]) ^= *((u32int*)&b[8]);
-		*((u32int*)&t[8]) ^= *((u32int*)&m[8]);
-		*((u32int*)&m[12]) ^= *((u32int*)&b[12]);
-		*((u32int*)&t[12]) ^= *((u32int*)&m[12]);
+		*((uint32_t*)&m[0]) ^= *((uint32_t*)&b[0]);
+		*((uint32_t*)&t[0]) ^= *((uint32_t*)&m[0]);
+		*((uint32_t*)&m[4]) ^= *((uint32_t*)&b[4]);
+		*((uint32_t*)&t[4]) ^= *((uint32_t*)&m[4]);
+		*((uint32_t*)&m[8]) ^= *((uint32_t*)&b[8]);
+		*((uint32_t*)&t[8]) ^= *((uint32_t*)&m[8]);
+		*((uint32_t*)&m[12]) ^= *((uint32_t*)&b[12]);
+		*((uint32_t*)&t[12]) ^= *((uint32_t*)&m[12]);
 
 		aes_encrypt(s->ekey, s->rounds, t, t);
 	}
@@ -1635,9 +1646,9 @@ aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 }
 
 static int
-setupCCMP(Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32])
+setupCCMP(Wifipkt *w, uint64_t tsc, uint8_t nonce[13], uint8_t auth[32])
 {
-	uchar *p;
+	uint8_t *p;
 
 	nonce[0] = ((w->fc[0] & 0x0c) == 0x00) << 4;
 	memmove(&nonce[1], w->a2, Eaddrlen);
@@ -1665,9 +1676,9 @@ setupCCMP(Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32])
 }
 
 static void
-ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc)
 {
-	uchar auth[32], nonce[13];
+	uint8_t auth[32], nonce[13];
 
 	aesCCMencrypt(2, 8, nonce, auth,
 		setupCCMP(w, tsc, nonce, auth),
@@ -1676,9 +1687,9 @@ ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 }
 
 static int
-ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uint64_t tsc)
 {
-	uchar auth[32], nonce[13];
+	uint8_t auth[32], nonce[13];
 
 	if(BLEN(b) < 8)
 		return -1;

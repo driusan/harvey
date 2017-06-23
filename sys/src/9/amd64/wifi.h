@@ -17,39 +17,39 @@ struct Wkey
 {
 	int		cipher;
 	int		len;
-	uvlong		tsc;
-	uchar		key[];
+	uint64_t		tsc;
+	uint8_t		key[];
 };
 
 struct Wnode
 {
-	uchar	bssid[Eaddrlen];
+	uint8_t	bssid[Eaddrlen];
 	char	ssid[Essidlen+2];
 
 	char	*status;
 
 	int	rsnelen;
-	uchar	rsne[258];
+	uint8_t	rsne[258];
 	Wkey	*txkey[1];
 	Wkey	*rxkey[5];
 
 	int	aid;		/* association id */
-	ulong	lastsend;
-	ulong	lastseen;
+	uint32_t	lastsend;
+	uint32_t	lastseen;
 
-	uchar	*minrate;	/* pointers into wifi->rates */
-	uchar	*maxrate;
-	uchar	*actrate;
+	uint8_t	*minrate;	/* pointers into wifi->rates */
+	uint8_t	*maxrate;
+	uint8_t	*actrate;
 
-	ulong	txcount;	/* statistics for rate adaption */
-	ulong	txerror;
+	uint32_t	txcount;	/* statistics for rate adaption */
+	uint32_t	txerror;
 
 	/* stuff from beacon */
 	int	ival;
 	int	cap;
 	int	channel;
 	int	brsnelen;
-	uchar	brsne[258];
+	uint8_t	brsne[258];
 };
 
 struct Wifi
@@ -60,17 +60,17 @@ struct Wifi
 
 	RWlock	crypt;
 	Queue	*iq;
-	ulong	watchdog;
-	ulong	lastauth;
+	uint32_t	watchdog;
+	uint32_t	lastauth;
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
 	/* for searching */
-	uchar	bssid[Eaddrlen];
+	uint8_t	bssid[Eaddrlen];
 	char	essid[Essidlen+2];
 
 	/* supported data rates by hardware */
-	uchar	*rates;
+	uint8_t	*rates;
 
 	/* effective base station */
 	Wnode	*bss;
@@ -80,13 +80,13 @@ struct Wifi
 
 struct Wifipkt
 {
-	uchar	fc[2];
-	uchar	dur[2];
-	uchar	a1[Eaddrlen];
-	uchar	a2[Eaddrlen];
-	uchar	a3[Eaddrlen];
-	uchar	seq[2];
-	uchar	a4[Eaddrlen];
+	uint8_t	fc[2];
+	uint8_t	dur[2];
+	uint8_t	a1[Eaddrlen];
+	uint8_t	a2[Eaddrlen];
+	uint8_t	a3[Eaddrlen];
+	uint8_t	seq[2];
+	uint8_t	a4[Eaddrlen];
 };
 
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));
@@ -94,6 +94,6 @@ void wifiiq(Wifi*, Block*);
 int wifihdrlen(Wifipkt*);
 void wifitxfail(Wifi*, Block*);
 
-long wifistat(Wifi*, void*, long, ulong);
+long wifistat(Wifi*, void*, long, uint32_t);
 long wifictl(Wifi*, void*, long);
 void wificfg(Wifi*, char*);
