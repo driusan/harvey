@@ -117,7 +117,9 @@
 				"startdisk": "startdisk",
 				"usbd": "/$ARCH/bin/usb/usbd",
 				"venti": "/$ARCH/bin/venti/venti",
-				"vga": "/$ARCH/bin/aux/vga"
+				"vga": "/$ARCH/bin/aux/vga",
+				"iwn6005": "/lib/firmware/iwn6005",
+				"iwn6030": "/lib/firmware/iwn6030"
 			},
 			"Systab": "/sys/src/libc/9syscall/sys.h"
 		},

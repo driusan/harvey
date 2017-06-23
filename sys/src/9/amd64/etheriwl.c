@@ -412,9 +412,9 @@ static char *fwname[32] = {
 	[Type5150] "iwn-5150",
 	[Type5100] "iwn-5000",
 	[Type1000] "iwn-1000",
-	[Type6000] "iwn-6000",
+	[Type6000] "iwn6000",
 	[Type6050] "iwn-6050",
-	[Type6005] "iwn-6005", /* see in iwlattach() below */
+	[Type6005] "iwn6005", /* see in iwlattach() below */
 	[Type2030] "iwn-2030",
 };
 
@@ -998,18 +998,25 @@ readfirmware(char *name)
 	if(!iseve())
 		error(Eperm);
 	if(!waserror()){
+		print("Opening /boot/%s", name);
 		snprint(buf, sizeof buf, "/boot/%s", name);
 		c = namec(buf, Aopen, OREAD, 0);
+print("error?");
 		poperror();
+print("error22?");
 	} else {
+		print("Opening /lib/firmware/%s", name);
 		snprint(buf, sizeof buf, "/lib/firmware/%s", name);
 		c = namec(buf, Aopen, OREAD, 0);
 	}
 	if(waserror()){
+print("Was error, closing");
 		cclose(c);
 		nexterror();
 	}
+print("I am here?");
 	n = devtab[c->qid.type]->stat(c, dirbuf, sizeof dirbuf);
+print("Stat'ed!");
 	if(n <= 0)
 		error("can't stat firmware");
 	convM2D(dirbuf, n, &d, nil);
@@ -1031,6 +1038,7 @@ readfirmware(char *name)
 	poperror();
 	poperror();
 	cclose(c);
+	print("Got firmware");
 	return fw;
 }
 
@@ -2222,9 +2230,10 @@ iwlattach(Ether *edev)
 				case 0x0085:	/* Centrino Advanced-N 6205 */
 					break;
 				default:	/* Centrino Advanced-N 6030, 6235 */
-					fn = "iwn-6030";
+					fn = "iwn6030";
 				}
 			}
+print("About to read firmware %s", fn);
 			fw = readfirmware(fn);
 			print("#l%d: firmware: %s, rev %ux, build %ud, size %ux+%ux+%ux+%ux+%ux\n",
 				edev->ctlrno, fn,
